@@ -18,13 +18,20 @@ end
 
 -- Initialize the plugin state
 local function init_plugin_state()
+	if not wezterm.GLOBAL then
+		wezterm.GLOBAL = {}
+	end
+
 	wezterm.GLOBAL.plugins = wezterm.GLOBAL.plugins or {}
-	local plugin_state = wezterm.GLOBAL.plugins[M.config.namespace] or {
-		initialized = false,
-		current_mark = nil,
-	}
-	wezterm.GLOBAL.plugins[M.config.namespace] = plugin_state
-	return plugin_state
+
+	if not wezterm.GLOBAL.plugins[M.config.namespace] then
+		wezterm.GLOBAL.plugins[M.config.namespace] = {
+			initialized = true,
+			current_mark = nil,
+		}
+	end
+
+	return wezterm.GLOBAL.plugins[M.config.namespace]
 end
 
 -- Enable/disable debug logging
@@ -62,7 +69,7 @@ function M.WriteMarkToMemory(window)
 	}
 
 	if save_to_memory(mark_data) then
-		window:toast_notification("WezTerm Marks", "Workspace Mark saved to memory", nil, 2000)
+		window:toast_notification("WezTerm Marks", "Workspace Mark saved", nil, 2000)
 		log(string.format("Mark saved successfully: %s", wezterm.json_encode(mark_data)))
 	else
 		wezterm.log_error(string.format("[%s] Failed to save mark data to memory", M.config.namespace))
@@ -82,7 +89,6 @@ function M.AccessMarkFromMemory(window)
 
 	log(string.format("Retrieved mark data from memory: %s", wezterm.json_encode(mark_data)))
 
-	-- Switch to the workspace first
 	if mark_data.workspace_name then
 		log(string.format("Switching to workspace: %s", mark_data.workspace_name))
 		window:perform_action(
@@ -91,17 +97,13 @@ function M.AccessMarkFromMemory(window)
 		)
 	end
 
-	-- Wait briefly for workspace switch to complete
 	wezterm.sleep_ms(100)
 
-	-- Get updated pane list after workspace switch
 	local panes = wezterm.mux.get_all_panes()
 	local target_pane
 
-	log(string.format("Searching for pane with ID: %s", mark_data.pane_id))
 	for _, pane in ipairs(panes) do
 		local pane_id = tostring(pane:pane_id())
-		log(string.format("Checking pane: %s", pane_id))
 		if pane_id == mark_data.pane_id then
 			target_pane = pane
 			break
